@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+pydantic>=2
+langchain-core
+langchain-google-genai
+langchain-chroma
+langchain-huggingface
+sentence-transformers
+rank-bm25
+sqlglot
+oracledb

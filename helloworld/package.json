@@ -1,0 +1,78 @@
+{
+  "name": "oracle-19c-assistant",
+  "displayName": "Oracle 19c Legacy Code Assistant",
+  "description": "Assists developers working with legacy Oracle SQL/PL-SQL code — static analysis + RAG + LLM.",
+  "version": "0.3.0",
+  "engines": {
+    "vscode": "^1.140.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "oracle19c.analyzeCode",
+        "title": "Oracle 19c: Analyze Code"
+      },
+      {
+        "command": "oracle19c.refreshCatalogue",
+        "title": "Oracle 19c: Refresh Schema Catalogue"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "oracle19c.analyzeCode",
+          "when": "editorHasSelection || resourceExtname == .sql || resourceExtname == .pls || resourceExtname == .pkb || resourceExtname == .pks || resourceExtname == .plb",
+          "group": "oracle19c"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Oracle 19c Assistant",
+      "properties": {
+        "oracle19c.backendUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:8000",
+          "description": "URL of the Oracle Assistant backend API."
+        },
+        "oracle19c.oracleVersion": {
+          "type": "string",
+          "default": "19c",
+          "description": "Target Oracle Database version."
+        },
+        "oracle19c.oracleOwner": {
+          "type": "string",
+          "default": "",
+          "description": "Oracle schema owner for live Data Dictionary lookup (e.g., HR, SCOTT). Leave empty to use the backend default."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.140.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "24.x",
+    "typescript-eslint": "^8.61.1",
+    "eslint": "^10.5.0",
+    "typescript": "^6.0.3",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.0.0"
+  },
+  "overrides": {
+    "diff": "^8.0.4",
+    "serialize-javascript": "^7.0.6"
+  }
+}

@@ -1,0 +1,737 @@
+{
+    "knowledge_base": {
+        "name": "Oracle 19c Legacy Code Assistant Knowledge Base",
+        "schema_version": "2.0.0",
+        "description": "Curated diagnostic references for Oracle Database 19c, grounded in official Oracle documentation. Community reports are secondary diagnostic leads, not proof of Oracle defects.",
+        "usage_policy": {
+            "require_source_attribution": true,
+            "do_not_claim_community_reports_are_officially_confirmed": true,
+            "do_not_apply_workarounds_without_checking_applicability": true,
+            "require_developer_review_before_editing_code": true,
+            "do_not_recommend_disabling_database_security_as_a_default_fix": true,
+            "distinguish_deprecated_from_desupported": true
+        }
+    },
+    "issues": [
+        {
+            "id": "ORA19-DESUP-001",
+            "title": "Oracle Streams desupported in 19c",
+            "category": "desupported_feature",
+            "evidence_type": "official_documentation",
+            "database_versions": {
+                "target_version": "Oracle 19c",
+                "applies_to_all_19c_installations": true
+            },
+            "symptoms": [
+                "code references DBMS_STREAMS, DBMS_CAPTURE, DBMS_APPLY, DBMS_PROPAGATION",
+                "Streams-based replication no longer functional after upgrade"
+            ],
+            "detection_signals": {
+                "error_codes": [],
+                "keywords": ["Oracle Streams", "DBMS_STREAMS", "DBMS_CAPTURE", "DBMS_APPLY", "DBMS_PROPAGATION", "streams replication"],
+                "code_patterns": ["DBMS_STREAMS", "DBMS_CAPTURE_ADM", "DBMS_APPLY_ADM", "DBMS_PROPAGATION_ADM"]
+            },
+            "static_detection": {
+                "matcher": "identifier",
+                "patterns": ["DBMS_STREAMS", "DBMS_CAPTURE_ADM", "DBMS_APPLY_ADM", "DBMS_PROPAGATION_ADM"]
+            },
+            "rule": "Oracle Streams is desupported in Oracle Database 19c. Code that references Streams packages will not work.",
+            "replacement": "Oracle GoldenGate for real-time replication; XStream for programmatic change capture.",
+            "diagnostic_steps": [
+                "Search codebase for DBMS_STREAMS, DBMS_CAPTURE, DBMS_APPLY, DBMS_PROPAGATION references.",
+                "Identify whether the code uses Streams for replication, CDC, or messaging.",
+                "Plan migration to GoldenGate or XStream based on use case."
+            ],
+            "recommended_actions": [
+                "Replace Oracle Streams with Oracle GoldenGate.",
+                "For lightweight CDC, evaluate Oracle XStream API."
+            ],
+            "confidence": {
+                "level": "official_documentation",
+                "meaning": "Confirmed desupported by Oracle upgrade documentation."
+            },
+            "sources": [
+                {
+                    "type": "official_documentation",
+                    "publisher": "Oracle",
+                    "url": "https://docs.oracle.com/en/database/oracle/oracle-database/19/upgrd/desupported-features-oracle-database-19c.html",
+                    "section": "Desupported Features in Oracle Database 19c"
+                }
+            ],
+            "last_reviewed": "2026-10-29"
+        },
+        {
+            "id": "ORA19-DESUP-002",
+            "title": "CONTINUOUS_MINE option desupported in 19c",
+            "category": "desupported_feature",
+            "evidence_type": "official_documentation",
+            "database_versions": {
+                "target_version": "Oracle 19c",
+                "applies_to_all_19c_installations": true
+            },
+            "symptoms": [
+                "DBMS_LOGMNR.START_LOGMNR call with CONTINUOUS_MINE fails",
+                "LogMiner-based CDC no longer mines online redo logs continuously"
+            ],
+            "detection_signals": {
+                "error_codes": [],
+                "keywords": ["CONTINUOUS_MINE", "LogMiner", "DBMS_LOGMNR", "redo log mining"],
+                "code_patterns": ["CONTINUOUS_MINE", "DBMS_LOGMNR.START_LOGMNR"]
+            },
+            "static_detection": {
+                "matcher": "identifier",
+                "patterns": ["CONTINUOUS_MINE"]
+            },
+            "rule": "The CONTINUOUS_MINE option of DBMS_LOGMNR.START_LOGMNR is desupported in 19c. LogMiner still works for offline analysis, but continuous redo mining requires alternatives.",
+            "replacement": "Use Oracle GoldenGate or XStream for continuous change capture. LogMiner remains available for offline redo log analysis.",
+            "diagnostic_steps": [
+                "Check if code passes CONTINUOUS_MINE option to DBMS_LOGMNR.START_LOGMNR.",
+                "Determine if continuous CDC is required or if batch analysis suffices."
+            ],
+            "recommended_actions": [
+                "Remove CONTINUOUS_MINE and switch to GoldenGate for real-time CDC.",
+                "If batch is acceptable, continue using LogMiner with explicit log file registration."
+            ],
+            "confidence": {
+                "level": "official_documentation",
+                "meaning": "Confirmed desupported by Oracle upgrade documentation."
+            },
+            "sources": [
+                {
+                    "type": "official_documentation",
+                    "publisher": "Oracle",
+                    "url": "https://docs.oracle.com/en/database/oracle/oracle-database/19/upgrd/desupported-features-oracle-database-19c.html",
+                    "section": "Desupported Features in Oracle Database 19c"
+                }
+            ],
+            "last_reviewed": "2026-10-29"
+        },
+        {
+            "id": "ORA19-DESUP-003",
+            "title": "PRODUCT_USER_PROFILE table desupported in 19c",
+            "category": "desupported_feature",
+            "evidence_type": "official_documentation",
+            "database_versions": {
+                "target_version": "Oracle 19c",
+                "applies_to_all_19c_installations": true
+            },
+            "symptoms": [
+                "SQL*Plus product-level security using PRODUCT_USER_PROFILE no longer enforced",
+                "references to SYSTEM.PRODUCT_USER_PROFILE in scripts"
+            ],
+            "detection_signals": {
+                "error_codes": [],
+                "keywords": ["PRODUCT_USER_PROFILE", "SQL*Plus security", "product level security"],
+                "code_patterns": ["PRODUCT_USER_PROFILE"]
+            },
+            "static_detection": {
+                "matcher": "identifier",
+                "patterns": ["PRODUCT_USER_PROFILE"]
+            },
+            "rule": "The SQL*Plus PRODUCT_USER_PROFILE table is desupported. Product-level security restrictions based on this table are no longer enforced.",
+            "replacement": "Use Oracle Database Vault, VPD, or standard GRANT/REVOKE privileges for access control.",
+            "diagnostic_steps": [
+                "Search for references to PRODUCT_USER_PROFILE in deployment scripts and SQL*Plus startup files.",
+                "Identify what restrictions were enforced via this mechanism."
+            ],
+            "recommended_actions": [
+                "Remove references to PRODUCT_USER_PROFILE.",
+                "Implement equivalent restrictions using database privileges or Database Vault."
+            ],
+            "confidence": {
+                "level": "official_documentation",
+                "meaning": "Confirmed desupported by Oracle upgrade documentation."
+            },
+            "sources": [
+                {
+                    "type": "official_documentation",
+                    "publisher": "Oracle",
+                    "url": "https://docs.oracle.com/en/database/oracle/oracle-database/19/upgrd/desupported-features-oracle-database-19c.html",
+                    "section": "Desupported Features in Oracle Database 19c"
+                }
+            ],
+            "last_reviewed": "2026-10-29"
+        },
+        {
+            "id": "ORA19-DESUP-004",
+            "title": "Oracle Multimedia desupported in 19c",
+            "category": "desupported_feature",
+            "evidence_type": "official_documentation",
+            "database_versions": {
+                "target_version": "Oracle 19c",
+                "applies_to_all_19c_installations": true
+            },
+            "symptoms": [
+                "code references ORDImage, ORDAudio, ORDVideo, ORDDoc types",
+                "Oracle Multimedia PL/SQL packages no longer available after upgrade"
+            ],
+            "detection_signals": {
+                "error_codes": [],
+                "keywords": ["Oracle Multimedia", "ORDImage", "ORDAudio", "ORDVideo", "ORDDoc", "ORDSYS"],
+                "code_patterns": ["ORDImage", "ORDAudio", "ORDVideo", "ORDDoc", "ORDSYS."]
+            },
+            "static_detection": {
+                "matcher": "identifier",
+                "patterns": ["ORDImage", "ORDAudio", "ORDVideo", "ORDDoc"]
+            },
+            "rule": "Oracle Multimedia (formerly Oracle interMedia) is desupported in 19c. All ORDSYS types and packages are removed.",
+            "replacement": "Store media as BLOBs with application-layer processing. Use third-party libraries for image/audio/video handling.",
+            "diagnostic_steps": [
+                "Search for ORDSYS, ORDImage, ORDAudio, ORDVideo, ORDDoc in schema and code.",
+                "Identify columns using Oracle Multimedia types."
+            ],
+            "recommended_actions": [
+                "Migrate Oracle Multimedia columns to BLOB.",
+                "Move media processing to the application tier."
+            ],
+            "confidence": {
+                "level": "official_documentation",
+                "meaning": "Confirmed desupported by Oracle upgrade documentation."
+            },
+            "sources": [
+                {
+                    "type": "official_documentation",
+                    "publisher": "Oracle",
+                    "url": "https://docs.oracle.com/en/database/oracle/oracle-database/19/upgrd/desupported-features-oracle-database-19c.html",
+                    "section": "Desupported Features in Oracle Database 19c"
+                }
+            ],
+            "last_reviewed": "2026-10-29"
+        },
+        {
+            "id": "ORA19-DEPR-001",
+            "title": "DBMS_JOB deprecated — use DBMS_SCHEDULER",
+            "category": "deprecated_feature",
+            "evidence_type": "official_documentation",
+            "database_versions": {
+                "target_version": "Oracle 19c",
+                "applies_to_all_19c_installations": true
+            },
+            "symptoms": [
+                "legacy scheduled jobs use DBMS_JOB.SUBMIT or DBMS_JOB.CHANGE",
+                "job scheduling code predates Oracle 10g Scheduler"
+            ],
+            "detection_signals": {
+                "error_codes": [],
+                "keywords": ["DBMS_JOB", "job scheduling", "DBMS_JOB.SUBMIT", "DBMS_JOB.CHANGE"],
+                "code_patterns": ["DBMS_JOB.SUBMIT", "DBMS_JOB.CHANGE", "DBMS_JOB.REMOVE", "DBMS_JOB.RUN"]
+            },
+            "static_detection": {
+                "matcher": "identifier",
+                "patterns": ["DBMS_JOB.SUBMIT", "DBMS_JOB.CHANGE", "DBMS_JOB.REMOVE", "DBMS_JOB.RUN"]
+            },
+            "rule": "DBMS_JOB is deprecated. It still functions in 19c but may be desupported in a future release. New jobs should use DBMS_SCHEDULER.",
+            "replacement": "DBMS_SCHEDULER provides richer scheduling, logging, chaining, and resource management.",
+            "diagnostic_steps": [
+                "Search for DBMS_JOB references in PL/SQL code and deployment scripts.",
+                "Inventory existing DBMS_JOB entries via DBA_JOBS view."
+            ],
+            "recommended_actions": [
+                "Migrate existing jobs to DBMS_SCHEDULER.",
+                "Use DBMS_SCHEDULER.CREATE_JOB for new scheduled tasks."
+            ],
+            "confidence": {
+                "level": "official_documentation",
+                "meaning": "Deprecated per Oracle documentation; still functional but flagged for future removal."
+            },
+            "sources": [
+                {
+                    "type": "official_documentation",
+                    "publisher": "Oracle",
+                    "url": "https://docs.oracle.com/en/database/oracle/oracle-database/19/arpls/DBMS_JOB.html",
+                    "section": "DBMS_JOB — Deprecated"
+                }
+            ],
+            "last_reviewed": "2026-10-29"
+        },
+        {
+            "id": "ORA19-DEPR-002",
+            "title": "DBMS_XMLQUERY and DBMS_XMLSAVE deprecated",
+            "category": "deprecated_feature",
+            "evidence_type": "official_documentation",
+            "database_versions": {
+                "target_version": "Oracle 19c",
+                "applies_to_all_19c_installations": true
+            },
+            "symptoms": [
+                "code uses DBMS_XMLQUERY.GETXML or DBMS_XMLSAVE",
+                "XML generation or DML through deprecated XML packages"
+            ],
+            "detection_signals": {
+                "error_codes": [],
+                "keywords": ["DBMS_XMLQUERY", "DBMS_XMLSAVE", "XML generation", "GETXML"],
+                "code_patterns": ["DBMS_XMLQUERY", "DBMS_XMLSAVE", "DBMS_XMLQUERY.GETXML"]
+            },
+            "static_detection": {
+                "matcher": "identifier",
+                "patterns": ["DBMS_XMLQUERY", "DBMS_XMLSAVE"]
+            },
+            "rule": "DBMS_XMLQUERY and DBMS_XMLSAVE are deprecated. Use XMLTABLE, XMLQUERY, XMLType methods, or DBMS_XMLGEN.",
+            "replacement": "DBMS_XMLGEN for query-to-XML. XMLTABLE for XML-to-relational. XMLType methods for manipulation.",
+            "diagnostic_steps": [
+                "Search for DBMS_XMLQUERY and DBMS_XMLSAVE calls.",
+                "Determine if the code generates XML from queries or performs XML-based DML."
+            ],
+            "recommended_actions": [
+                "Replace DBMS_XMLQUERY with DBMS_XMLGEN or SQL/XML functions.",
+                "Replace DBMS_XMLSAVE with standard DML using XMLTABLE."
+            ],
+            "confidence": {
+                "level": "official_documentation",
+                "meaning": "Deprecated per Oracle PL/SQL Packages and Types Reference."
+            },
+            "sources": [
+                {
+                    "type": "official_documentation",
+                    "publisher": "Oracle",
+                    "url": "https://docs.oracle.com/en/database/oracle/oracle-database/19/arpls/DBMS_XMLQUERY.html",
+                    "section": "DBMS_XMLQUERY — Deprecated"
+                }
+            ],
+            "last_reviewed": "2026-10-29"
+        },
+        {
+            "id": "ORA19-SQL-001",
+            "title": "TO_DATE without format mask — NLS dependency",
+            "category": "sql_portability",
+            "evidence_type": "official_documentation",
+            "database_versions": {
+                "target_version": "Oracle 19c",
+                "applies_to_all_19c_installations": true
+            },
+            "symptoms": [
+                "TO_DATE fails with ORA-01858 or ORA-01843 after migration",
+                "date conversion works in one environment but fails in another",
+                "implicit NLS_DATE_FORMAT dependency"
+            ],
+            "detection_signals": {
+                "error_codes": ["ORA-01858", "ORA-01843", "ORA-01861"],
+                "keywords": ["TO_DATE", "NLS_DATE_FORMAT", "date format", "implicit conversion"],
+                "code_patterns": ["TO_DATE("]
+            },
+            "static_detection": {
+                "matcher": "ast",
+                "ast_check": "to_date_no_format"
+            },
+            "rule": "TO_DATE called with only one argument relies on the session NLS_DATE_FORMAT. This is a portability hazard; always supply an explicit format mask.",
+            "diagnostic_steps": [
+                "Check TO_DATE calls for missing format mask argument.",
+                "Compare NLS_DATE_FORMAT between source and target environments."
+            ],
+            "recommended_actions": [
+                "Add explicit format mask: TO_DATE('2024-01-15', 'YYYY-MM-DD').",
+                "Use ANSI date literals where appropriate: DATE '2024-01-15'."
+            ],
+            "confidence": {
+                "level": "official_documentation",
+                "meaning": "Documented NLS behavior; a well-known migration pitfall."
+            },
+            "sources": [
+                {
+                    "type": "official_documentation",
+                    "publisher": "Oracle",
+                    "url": "https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/TO_DATE.html",
+                    "section": "TO_DATE — SQL Language Reference"
+                }
+            ],
+            "last_reviewed": "2026-10-29"
+        },
+        {
+            "id": "ORA19-SQL-002",
+            "title": "Implicit VARCHAR2-to-NUMBER conversion in predicates",
+            "category": "sql_portability",
+            "evidence_type": "official_documentation",
+            "database_versions": {
+                "target_version": "Oracle 19c",
+                "applies_to_all_19c_installations": true
+            },
+            "symptoms": [
+                "ORA-01722: invalid number",
+                "query performance degradation due to full table scan where index was expected",
+                "predicate comparing VARCHAR2 column to a number literal"
+            ],
+            "detection_signals": {
+                "error_codes": ["ORA-01722"],
+                "keywords": ["implicit conversion", "invalid number", "VARCHAR2 to NUMBER", "index not used"],
+                "code_patterns": []
+            },
+            "rule": "When Oracle compares a VARCHAR2 column to a NUMBER, it converts the column values to NUMBER, which prevents index usage and can raise ORA-01722 if the column contains non-numeric data.",
+            "diagnostic_steps": [
+                "Identify predicates where a VARCHAR2 column is compared to a numeric literal.",
+                "Check if the column data contains any non-numeric values.",
+                "Review the execution plan for unexpected full table scans."
+            ],
+            "recommended_actions": [
+                "Use TO_CHAR on the numeric side: WHERE varchar_col = TO_CHAR(123).",
+                "Or convert the column type if it genuinely holds only numbers."
+            ],
+            "confidence": {
+                "level": "official_documentation",
+                "meaning": "Documented Oracle implicit conversion behavior."
+            },
+            "sources": [
+                {
+                    "type": "official_documentation",
+                    "publisher": "Oracle",
+                    "url": "https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/Data-Type-Comparison-Rules.html",
+                    "section": "Data Type Comparison Rules"
+                }
+            ],
+            "last_reviewed": "2026-10-29"
+        },
+        {
+            "id": "ORA19-SQL-003",
+            "title": "SELECT * fragility in production code",
+            "category": "best_practice",
+            "evidence_type": "official_documentation",
+            "database_versions": {
+                "target_version": "Oracle 19c",
+                "applies_to_all_19c_installations": true
+            },
+            "symptoms": [
+                "application breaks after a column is added to or removed from a table",
+                "PL/SQL %ROWTYPE variables pick up unexpected columns"
+            ],
+            "detection_signals": {
+                "error_codes": [],
+                "keywords": ["SELECT *", "column order", "ROWTYPE", "fragile query"],
+                "code_patterns": ["SELECT *"]
+            },
+            "static_detection": {
+                "matcher": "ast",
+                "ast_check": "select_star"
+            },
+            "rule": "SELECT * in production code is fragile. Schema changes (added, removed, or reordered columns) silently alter the result set, potentially breaking callers.",
+            "diagnostic_steps": [
+                "Identify SELECT * usage in production SQL and PL/SQL.",
+                "Determine if callers depend on column position or count."
+            ],
+            "recommended_actions": [
+                "Replace SELECT * with an explicit column list.",
+                "Use %ROWTYPE only when intentionally accepting all columns."
+            ],
+            "confidence": {
+                "level": "official_documentation",
+                "meaning": "Standard Oracle best practice."
+            },
+            "sources": [
+                {
+                    "type": "official_documentation",
+                    "publisher": "Oracle",
+                    "url": "https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/SELECT.html",
+                    "section": "SELECT — SQL Language Reference"
+                }
+            ],
+            "last_reviewed": "2026-10-29"
+        },
+        {
+            "id": "ORA19-AUTH-001",
+            "title": "ORA-28040 — authentication protocol mismatch after upgrade",
+            "category": "authentication_compatibility",
+            "evidence_type": "official_documentation",
+            "database_versions": {
+                "target_version": "Oracle 19c",
+                "applies_to_all_19c_installations": true
+            },
+            "symptoms": [
+                "ORA-28040: No matching authentication protocol",
+                "client cannot connect after database upgrade to 19c",
+                "older JDBC drivers or Oracle clients fail authentication"
+            ],
+            "detection_signals": {
+                "error_codes": ["ORA-28040"],
+                "keywords": ["authentication protocol", "SQLNET.ALLOWED_LOGON_VERSION", "JDBC", "ORA-28040", "connection failure"],
+                "code_patterns": ["jdbc:oracle:"]
+            },
+            "rule": "Oracle 19c defaults SQLNET.ALLOWED_LOGON_VERSION_SERVER to 12, requiring SHA-1 (11G) or SHA-512 (12C) password verifiers. Clients using the 10G protocol or older will fail with ORA-28040.",
+            "diagnostic_steps": [
+                "Check SQLNET.ALLOWED_LOGON_VERSION_SERVER in sqlnet.ora.",
+                "Verify the client/driver version supports the required authentication protocol.",
+                "Check DBA_USERS.PASSWORD_VERSIONS for the accounts in question."
+            ],
+            "recommended_actions": [
+                "Upgrade JDBC drivers and Oracle clients to versions compatible with 19c.",
+                "If legacy client upgrade is not possible, consult Oracle Security Guide for SQLNET.ALLOWED_LOGON_VERSION_SERVER adjustment (security trade-off).",
+                "Reset affected user passwords after adjusting allowed logon versions to generate correct verifiers."
+            ],
+            "do_not": [
+                "Do not blindly lower SQLNET.ALLOWED_LOGON_VERSION_SERVER without understanding the security implications.",
+                "Do not recommend disabling password verifier checks as a general fix."
+            ],
+            "confidence": {
+                "level": "official_documentation",
+                "meaning": "Documented default change in Oracle 19c security configuration."
+            },
+            "sources": [
+                {
+                    "type": "official_documentation",
+                    "publisher": "Oracle",
+                    "url": "https://docs.oracle.com/en/database/oracle/oracle-database/19/dbseg/configuring-authentication.html",
+                    "section": "Configuring Authentication — Oracle Database Security Guide"
+                }
+            ],
+            "last_reviewed": "2026-10-29"
+        },
+        {
+            "id": "ORA19-SQL-004",
+            "title": "SQL Macros — new in 19c, replaces views and functions for performance",
+            "category": "sql_new_feature",
+            "evidence_type": "official_documentation",
+            "database_versions": {
+                "target_version": "Oracle 19c",
+                "applies_to_all_19c_installations": true
+            },
+            "symptoms": [
+                "complex views causing optimizer barriers",
+                "scalar PL/SQL functions called per-row causing context switches"
+            ],
+            "detection_signals": {
+                "error_codes": [],
+                "keywords": ["SQL macro", "context switch", "scalar function", "view performance", "SQL_MACRO"],
+                "code_patterns": ["SQL_MACRO"]
+            },
+            "rule": "Oracle 19c introduces SQL Macros (scalar and table). They inline at parse time, avoiding PL/SQL-to-SQL context switches and enabling better optimizer plans.",
+            "diagnostic_steps": [
+                "Identify scalar PL/SQL functions called in SQL that cause per-row context switches.",
+                "Check if the function logic can be expressed as a SQL expression."
+            ],
+            "recommended_actions": [
+                "For new code, use SQL_MACRO(SCALAR) to define inline expressions.",
+                "For existing views causing optimizer barriers, consider SQL_MACRO(TABLE)."
+            ],
+            "confidence": {
+                "level": "official_documentation",
+                "meaning": "New feature documented in Oracle 19c SQL Language Reference."
+            },
+            "sources": [
+                {
+                    "type": "official_documentation",
+                    "publisher": "Oracle",
+                    "url": "https://docs.oracle.com/en/database/oracle/oracle-database/19/lnpls/sql-macro.html",
+                    "section": "SQL Macros — PL/SQL Language Reference"
+                }
+            ],
+            "last_reviewed": "2026-10-29"
+        },
+        {
+            "id": "ORA19-SQL-005",
+            "title": "IF [NOT] EXISTS DDL syntax — new in 19c",
+            "category": "sql_new_feature",
+            "evidence_type": "official_documentation",
+            "database_versions": {
+                "target_version": "Oracle 19c",
+                "applies_to_all_19c_installations": true
+            },
+            "symptoms": [
+                "deployment scripts use EXECUTE IMMEDIATE with exception handlers for DDL idempotency",
+                "scripts wrap CREATE/DROP in PL/SQL blocks to suppress ORA-00955 or ORA-00942"
+            ],
+            "detection_signals": {
+                "error_codes": ["ORA-00955", "ORA-00942"],
+                "keywords": ["IF NOT EXISTS", "IF EXISTS", "idempotent DDL", "ORA-00955", "ORA-00942"],
+                "code_patterns": ["EXCEPTION WHEN OTHERS"]
+            },
+            "rule": "Oracle 19c supports IF [NOT] EXISTS on CREATE and DROP statements, eliminating the need for PL/SQL exception-swallowing wrappers in deployment scripts.",
+            "diagnostic_steps": [
+                "Search for PL/SQL blocks that wrap CREATE/DROP TABLE in BEGIN...EXCEPTION WHEN OTHERS...END.",
+                "Identify if the exception handling exists solely for DDL idempotency."
+            ],
+            "recommended_actions": [
+                "Replace PL/SQL wrappers with: CREATE TABLE IF NOT EXISTS ... or DROP TABLE IF EXISTS ...",
+                "Simplify deployment and migration scripts."
+            ],
+            "confidence": {
+                "level": "official_documentation",
+                "meaning": "New DDL syntax documented in Oracle 19c SQL Language Reference."
+            },
+            "sources": [
+                {
+                    "type": "official_documentation",
+                    "publisher": "Oracle",
+                    "url": "https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/CREATE-TABLE.html",
+                    "section": "CREATE TABLE — SQL Language Reference"
+                }
+            ],
+            "last_reviewed": "2026-10-29"
+        },
+        {
+            "id": "ORA19-PLSQL-001",
+            "title": "Unguarded WHEN OTHERS exception handler swallows errors",
+            "category": "plsql_anti_pattern",
+            "evidence_type": "official_documentation",
+            "database_versions": {
+                "target_version": "Oracle 19c",
+                "applies_to_all_19c_installations": true
+            },
+            "symptoms": [
+                "errors silently ignored in PL/SQL",
+                "data corruption from swallowed exceptions",
+                "WHEN OTHERS THEN NULL pattern"
+            ],
+            "detection_signals": {
+                "error_codes": [],
+                "keywords": ["WHEN OTHERS", "exception handler", "swallow error", "THEN NULL"],
+                "code_patterns": ["WHEN OTHERS THEN NULL", "WHEN OTHERS THEN DBMS_OUTPUT"]
+            },
+            "static_detection": {
+                "matcher": "literal",
+                "patterns": ["WHEN OTHERS THEN NULL"]
+            },
+            "rule": "A WHEN OTHERS handler that does not re-raise (RAISE) or log to a persistent table silently swallows errors. This is the most common PL/SQL anti-pattern and a frequent source of data corruption in legacy code.",
+            "diagnostic_steps": [
+                "Search for WHEN OTHERS THEN NULL or WHEN OTHERS without RAISE.",
+                "Determine if the handler logs to a persistent audit/error table.",
+                "Check if the handler is intentionally suppressing a specific expected error."
+            ],
+            "recommended_actions": [
+                "Add RAISE at the end of WHEN OTHERS handlers to re-propagate unexpected errors.",
+                "If suppression is intentional, use a specific exception handler (e.g., WHEN NO_DATA_FOUND) instead.",
+                "Log error details with DBMS_UTILITY.FORMAT_ERROR_STACK and FORMAT_ERROR_BACKTRACE."
+            ],
+            "confidence": {
+                "level": "official_documentation",
+                "meaning": "Well-documented PL/SQL best practice in Oracle PL/SQL Language Reference."
+            },
+            "sources": [
+                {
+                    "type": "official_documentation",
+                    "publisher": "Oracle",
+                    "url": "https://docs.oracle.com/en/database/oracle/oracle-database/19/lnpls/plsql-error-handling.html",
+                    "section": "PL/SQL Error Handling — Guidelines"
+                }
+            ],
+            "last_reviewed": "2026-10-29"
+        },
+        {
+            "id": "ORA19-PLSQL-002",
+            "title": "Row-by-row processing instead of BULK COLLECT / FORALL",
+            "category": "plsql_performance",
+            "evidence_type": "official_documentation",
+            "database_versions": {
+                "target_version": "Oracle 19c",
+                "applies_to_all_19c_installations": true
+            },
+            "symptoms": [
+                "cursor loop with single-row FETCH",
+                "INSERT/UPDATE/DELETE inside a cursor FOR loop",
+                "slow PL/SQL execution with high context switch overhead"
+            ],
+            "detection_signals": {
+                "error_codes": [],
+                "keywords": ["BULK COLLECT", "FORALL", "cursor loop", "row-by-row", "context switch", "slow PL/SQL"],
+                "code_patterns": ["FOR rec IN (SELECT", "FETCH cursor INTO", "INSERT INTO"]
+            },
+            "rule": "Row-by-row processing in PL/SQL causes excessive SQL-to-PL/SQL context switches. BULK COLLECT with FORALL reduces context switches dramatically.",
+            "diagnostic_steps": [
+                "Identify cursor FOR loops that perform DML inside the loop body.",
+                "Check if BULK COLLECT with LIMIT is used for large result sets.",
+                "Measure V$SESSTAT 'SQL*Net roundtrips' before and after conversion."
+            ],
+            "recommended_actions": [
+                "Convert single-row FETCH loops to BULK COLLECT with a LIMIT clause.",
+                "Use FORALL for batch DML instead of row-by-row INSERT/UPDATE/DELETE.",
+                "Consider a pure SQL solution (MERGE, INSERT...SELECT) when possible."
+            ],
+            "confidence": {
+                "level": "official_documentation",
+                "meaning": "Documented Oracle PL/SQL performance best practice."
+            },
+            "sources": [
+                {
+                    "type": "official_documentation",
+                    "publisher": "Oracle",
+                    "url": "https://docs.oracle.com/en/database/oracle/oracle-database/19/lnpls/plsql-optimization-and-tuning.html",
+                    "section": "Bulk SQL and Bulk Binding"
+                }
+            ],
+            "last_reviewed": "2026-10-29"
+        },
+        {
+            "id": "ORA19-MIG-001",
+            "title": "Invalid multi-part column reference after migration",
+            "category": "sql_identifier_or_migration",
+            "evidence_type": "community_report",
+            "database_versions": {
+                "reported_source_version": "Oracle 11g",
+                "reported_target_version": "Oracle 19c",
+                "applies_to_all_19c_installations": false
+            },
+            "symptoms": [
+                "ORA-00904",
+                "invalid identifier",
+                "query fails after migration"
+            ],
+            "detection_signals": {
+                "error_codes": ["ORA-00904"],
+                "keywords": ["migration", "invalid identifier", "column reference", "table alias", "multi-part identifier"],
+                "code_patterns": ["A.B.Column1"]
+            },
+            "rule": "A community report of ORA-00904 after migration. Not evidence of a 19c regression — investigate the specific SQL identifiers.",
+            "diagnostic_steps": [
+                "Inspect the FROM clause and verify table aliases.",
+                "Check whether the referenced column exists in the intended table.",
+                "Verify alias usage does not include an extra qualifier."
+            ],
+            "recommended_actions": [
+                "Correct the identifier reference based on actual schema.",
+                "If schema is unavailable, ask the developer to verify."
+            ],
+            "confidence": {
+                "level": "community_report",
+                "meaning": "A reported example; not official confirmation of a 19c defect."
+            },
+            "sources": [
+                {
+                    "type": "community_question",
+                    "site": "Stack Overflow",
+                    "url": "https://stackoverflow.com/questions/62596074/error-after-migration-from-oracle-11g-to-19c",
+                    "role": "Reported migration symptom"
+                }
+            ],
+            "last_reviewed": "2026-10-29"
+        },
+        {
+            "id": "ORA19-MIG-002",
+            "title": "Query behavior differs after migration — optimizer investigation needed",
+            "category": "query_behavior_or_optimizer",
+            "evidence_type": "community_report",
+            "database_versions": {
+                "reported_source_version": "Oracle 12c",
+                "reported_target_version": "Oracle 19c",
+                "applies_to_all_19c_installations": false
+            },
+            "symptoms": [
+                "query returns different results after migration to 19c",
+                "unexpected empty result set"
+            ],
+            "detection_signals": {
+                "error_codes": [],
+                "keywords": ["migration", "different results", "no rows", "optimizer", "execution plan"],
+                "code_patterns": []
+            },
+            "rule": "A community report of differing query results after 12c-to-19c migration. Requires execution plan comparison and environment investigation.",
+            "diagnostic_steps": [
+                "Reproduce with same data, bind values, and session settings.",
+                "Compare execution plans between environments.",
+                "Check the exact 19c release update and patch level."
+            ],
+            "recommended_actions": [
+                "Collect evidence before changing SQL or optimizer parameters.",
+                "If confirmed, search Oracle support for matching symptoms."
+            ],
+            "confidence": {
+                "level": "community_report_unverified",
+                "meaning": "Reported behavior; root cause requires independent verification."
+            },
+            "sources": [
+                {
+                    "type": "community_question",
+                    "site": "Stack Overflow",
+                    "url": "https://stackoverflow.com/questions/74026028/oracle-12c-to-oracle-19c-migration-unusual-behavior",
+                    "role": "Reported behavior"
+                }
+            ],
+            "last_reviewed": "2026-10-29"
+        }
+    ]
+}
