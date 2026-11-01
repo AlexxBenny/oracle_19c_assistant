@@ -1,4 +1,4 @@
-"""Oracle-aware static analysis using SQLGlot.
+"""Oracle-aware static analysis using ANTLR4 and SQLGlot.
 
 Detection rules are loaded from knowledge.json at startup.
 Each issue with a `static_detection` field becomes a static rule.
@@ -7,7 +7,12 @@ Four matcher types:
   - identifier:  word-boundary match (DBMS_STREAMS, DBMS_JOB.SUBMIT)
   - literal:     whitespace-normalized text match (WHEN OTHERS THEN NULL)
   - regex:       explicit regex pattern
-  - ast:         SQLGlot AST structural check (TO_DATE arg count, SELECT *)
+  - ast:         structural check on ANTLR parse-tree facts
+
+Parsing pipeline:
+  ANTLR4 parses the full PL/SQL or SQL input, producing structural facts
+  (function calls, SELECT stars) and outermost DML fragments.  AST checks
+  evaluate the facts.  SQLGlot parses extracted DML for schema validation.
 """
 
 from __future__ import annotations
@@ -22,6 +27,8 @@ from typing import Literal
 import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ParseError, TokenError
+
+from plsql_parser import parse_and_extract, ParseFacts
 
 logger = logging.getLogger("oracle_assistant.static")
 
@@ -123,28 +130,23 @@ def _match_regex(code: str, patterns: list[str]) -> str | None:
 
 
 # ── AST-based checks ────────────────────────────────────────────────
+#
+# Each check function takes a ParseFacts and returns evidence (str)
+# if the condition is found, or None.  The _check_ast_rules loop
+# selects which check to run based on knowledge.json "ast_check".
 
-def _ast_select_star(stmt) -> str | None:
-    """Detect SELECT * (but not COUNT(*), SUM(*), etc.)."""
-    for star in stmt.find_all(exp.Star):
-        # Star inside an aggregate function is fine (COUNT(*))
-        parent = star.parent
-        if isinstance(parent, exp.Func):
-            continue
-        return "SELECT *"
+def _ast_select_star(facts: ParseFacts) -> str | None:
+    """Return evidence if any bare SELECT * was observed."""
+    for ss in facts.select_stars:
+        return ss.text
     return None
 
 
-def _ast_to_date_no_format(stmt) -> str | None:
-    """Detect TO_DATE with one argument (missing explicit format mask).
-
-    SQLGlot parses TO_DATE as exp.StrToDate with:
-      - this: the date string
-      - format: the format mask (None when omitted)
-    """
-    for func in stmt.find_all(exp.StrToDate):
-        if func.args.get("format") is None:
-            return func.sql(dialect="oracle")
+def _ast_to_date_no_format(facts: ParseFacts) -> str | None:
+    """Return evidence if any TO_DATE call has exactly 1 argument."""
+    for fc in facts.function_calls:
+        if fc.name == 'TO_DATE' and fc.arg_count == 1:
+            return fc.text
     return None
 
 
@@ -242,46 +244,66 @@ class StaticAnalyzer:
         stripped = _strip_comments_and_strings(code)
         self._check_text_rules(stripped, result)
 
-        # Pass 2: Parse with SQLGlot Oracle dialect
-        statements = self._parse(code, result)
+        # Pass 2: ANTLR parse → structural facts
+        facts = parse_and_extract(code)
 
-        # Pass 3: AST-based rules from knowledge.json
-        if statements:
-            self._check_ast_rules(statements, result)
+        if facts.parse_errors and facts.is_plsql:
+            result.findings.append(StaticFinding(
+                rule_id="PARSE-001",
+                severity="info",
+                finding_type="parse_warning",
+                description=(
+                    "PL/SQL parse completed with errors. "
+                    "Analysis may be incomplete."
+                ),
+                evidence=facts.parse_errors[0]["message"],
+            ))
 
-        # Pass 4: Schema-aware checks
+        # Pass 3: AST-based rules from knowledge.json (against ANTLR facts)
+        self._check_ast_rules(facts, result)
+
+        # Pass 4: Schema-aware checks (SQLGlot on extracted DML)
+        statements = self._parse_extracted_sql(facts, code, result)
         if statements and self.known_tables:
             for stmt in statements:
                 self._validate_schema(stmt, result)
 
         return result
 
-    def _parse(self, code: str, result: AnalysisResult) -> list:
-        """Attempt to parse SQL/PL-SQL with SQLGlot Oracle dialect.
+    def _parse_extracted_sql(
+        self,
+        facts: ParseFacts,
+        original_code: str,
+        result: AnalysisResult,
+    ) -> list:
+        """Parse extracted SQL with SQLGlot for schema validation.
 
-        SQLGlot does not cover the full PL/SQL grammar, so a parse
-        failure does not confirm invalid syntax.  We report it as a
-        parser limitation, not a confirmed error.
+        If ANTLR found PL/SQL, parse each extracted DML fragment.
+        Otherwise, parse the original code directly with SQLGlot.
         """
-        try:
-            statements = sqlglot.parse(code, dialect="oracle")
-            statements = [s for s in statements if s is not None]
-            result.statements_parsed = len(statements)
-            return statements
-        except (ParseError, TokenError):
-            result.parse_success = False
-            result.findings.append(StaticFinding(
-                rule_id="PARSE-001",
-                severity="info",
-                finding_type="parse_warning",
-                description=(
-                    "PL/SQL syntax not validated. "
-                    "The static parser does not fully support this construct. "
-                    "Schema-level checks are skipped for this block."
-                ),
-                evidence="",
-            ))
-            return []
+        statements = []
+
+        if facts.sql_statements:
+            # Parse each extracted DML fragment
+            for extracted in facts.sql_statements:
+                try:
+                    parsed = sqlglot.parse(extracted.text, dialect="oracle")
+                    statements.extend(s for s in parsed if s is not None)
+                except (ParseError, TokenError):
+                    logger.debug(
+                        "SQLGlot could not parse extracted %s at line %d",
+                        extracted.rule, extracted.start_line,
+                    )
+        elif not facts.is_plsql:
+            # Not PL/SQL and no DML extracted — try direct SQLGlot parse
+            try:
+                parsed = sqlglot.parse(original_code, dialect="oracle")
+                statements = [s for s in parsed if s is not None]
+            except (ParseError, TokenError):
+                result.parse_success = False
+
+        result.statements_parsed = len(statements)
+        return statements
 
     def _check_text_rules(self, stripped_code: str, result: AnalysisResult) -> None:
         """Run identifier, literal, and regex matchers from knowledge.json."""
@@ -307,25 +329,23 @@ class StaticAnalyzer:
                     evidence=evidence,
                 ))
 
-    def _check_ast_rules(self, statements: list, result: AnalysisResult) -> None:
-        """Run AST-based checks from knowledge.json."""
+    def _check_ast_rules(self, facts: ParseFacts, result: AnalysisResult) -> None:
+        """Run AST-based checks from knowledge.json against ANTLR facts."""
         for rule in _STATIC_RULES:
             if rule["matcher"] != "ast":
                 continue
             check_fn = _AST_CHECKS.get(rule["ast_check"])
             if not check_fn:
                 continue
-            for stmt in statements:
-                evidence = check_fn(stmt)
-                if evidence:
-                    result.findings.append(StaticFinding(
-                        rule_id=rule["id"],
-                        severity=rule["severity"],
-                        finding_type=rule["finding_type"],
-                        description=rule["rule"],
-                        evidence=evidence,
-                    ))
-                    break  # one finding per rule is enough
+            evidence = check_fn(facts)
+            if evidence:
+                result.findings.append(StaticFinding(
+                    rule_id=rule["id"],
+                    severity=rule["severity"],
+                    finding_type=rule["finding_type"],
+                    description=rule["rule"],
+                    evidence=evidence,
+                ))
 
     def _validate_schema(self, stmt, result: AnalysisResult) -> None:
         """Resolve table aliases from the AST, then validate columns
@@ -432,17 +452,27 @@ def extract_table_refs(code: str) -> list[tuple[str, str]]:
     For example, 'SELECT * FROM HR.EMPLOYEE e JOIN DEPARTMENT d'
     returns [('', 'DEPARTMENT'), ('HR', 'EMPLOYEE')].
 
+    Uses ANTLR to extract DML from PL/SQL, then SQLGlot for table refs.
     Returns empty list if the code cannot be parsed.
     """
     refs: set[tuple[str, str]] = set()
-    try:
-        for stmt in sqlglot.parse(code, dialect="oracle"):
-            if stmt is None:
-                continue
-            for table in stmt.find_all(exp.Table):
-                if table.name:
-                    schema = table.db.upper() if table.db else ""
-                    refs.add((schema, table.name.upper()))
-    except (ParseError, TokenError):
-        pass
+    facts = parse_and_extract(code)
+
+    sql_sources: list[str] = []
+    if facts.sql_statements:
+        sql_sources = [s.text for s in facts.sql_statements]
+    elif not facts.is_plsql:
+        sql_sources = [code]
+
+    for sql in sql_sources:
+        try:
+            for stmt in sqlglot.parse(sql, dialect="oracle"):
+                if stmt is None:
+                    continue
+                for table in stmt.find_all(exp.Table):
+                    if table.name:
+                        schema = table.db.upper() if table.db else ""
+                        refs.add((schema, table.name.upper()))
+        except (ParseError, TokenError):
+            pass
     return sorted(refs)

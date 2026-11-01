@@ -150,4 +150,114 @@ refs = extract_table_refs("SELECT emp_name FROM HR.EMPLOYEE")
 assert ("HR", "EMPLOYEE") in refs
 print("PASS: extract_table_refs preserves schema qualifier")
 
-print("\nAll 16 tests passed")
+# ── PL/SQL parsing tests (ANTLR4 integration) ───────────────────────
+
+# Test 17: TO_DATE in PL/SQL assignment — previously missed entirely
+code_plsql_todate = """\
+BEGIN
+    v_date := TO_DATE('2026-11-01');
+END;
+/
+"""
+result = run_static_analysis(code_plsql_todate)
+todate_findings = [f for f in result["findings"] if f["rule_id"] == "ORA19-SQL-001"]
+assert todate_findings, "False negative: TO_DATE in PL/SQL assignment not flagged"
+print("PASS: TO_DATE in PL/SQL assignment flagged")
+
+# Test 18: TO_DATE with format mask in PL/SQL — should NOT be flagged
+code_plsql_todate_ok = """\
+BEGIN
+    v_date := TO_DATE('2026-11-01', 'YYYY-MM-DD');
+END;
+/
+"""
+result = run_static_analysis(code_plsql_todate_ok)
+todate_findings = [f for f in result["findings"] if f["rule_id"] == "ORA19-SQL-001"]
+assert not todate_findings, f"False positive: TO_DATE with format in PL/SQL: {todate_findings}"
+print("PASS: TO_DATE with format in PL/SQL not flagged")
+
+# Test 19: SELECT * inside INSERT in procedure — previously missed
+code_proc_select_star = """\
+CREATE OR REPLACE PROCEDURE archive_employees AS
+BEGIN
+    INSERT INTO employee_archive
+    SELECT *
+    FROM EMPLOYEES;
+END;
+/
+"""
+result = run_static_analysis(code_proc_select_star)
+star_findings = [f for f in result["findings"] if f["rule_id"] == "ORA19-SQL-003"]
+assert star_findings, "False negative: SELECT * in PL/SQL procedure not flagged"
+print("PASS: SELECT * inside PL/SQL procedure flagged")
+
+# Test 20: Schema validation through PL/SQL procedure
+known_tables = {
+    "EMPLOYEES": {"EMPLOYEE_ID", "FIRST_NAME", "DEPARTMENT_ID"},
+}
+code_proc_schema = """\
+CREATE OR REPLACE PROCEDURE bad_query AS
+BEGIN
+    SELECT e.SALARY FROM EMPLOYEES e;
+END;
+/
+"""
+result = run_static_analysis(code_proc_schema, known_tables=known_tables, catalogue_owner="ORACLE_DEV")
+schema_findings = [f for f in result["findings"] if f["rule_id"] == "SCHEMA-003"]
+assert schema_findings, "False negative: e.SALARY in PL/SQL not caught by schema validation"
+print("PASS: schema validation works through PL/SQL")
+
+# Test 21: extract_table_refs from PL/SQL procedure
+code_proc_refs = """\
+CREATE OR REPLACE PROCEDURE process_employee AS
+BEGIN
+    INSERT INTO employee_archive
+    SELECT *
+    FROM ORACLE_DEV.EMPLOYEE;
+END;
+/
+"""
+refs = extract_table_refs(code_proc_refs)
+assert ("ORACLE_DEV", "EMPLOYEE") in refs, f"Table refs from PL/SQL: {refs}"
+assert ("", "EMPLOYEE_ARCHIVE") in refs, f"Table refs from PL/SQL: {refs}"
+print("PASS: extract_table_refs works through PL/SQL")
+
+# Test 22: Full process_employee procedure — the original failing case
+code_full = """\
+CREATE OR REPLACE PROCEDURE process_employee AS
+    v_date DATE;
+BEGIN
+    v_date := TO_DATE('2026-11-01');
+
+    DBMS_JOB.SUBMIT(
+        job       => 100,
+        what      => 'BEGIN NULL; END;',
+        next_date => SYSDATE,
+        interval  => NULL
+    );
+
+    INSERT INTO employee_archive
+    SELECT *
+    FROM ORACLE_DEV.EMPLOYEE;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        NULL;
+END;
+/
+"""
+result = run_static_analysis(code_full)
+rule_ids = {f["rule_id"] for f in result["findings"]}
+assert "ORA19-SQL-001" in rule_ids, f"TO_DATE not flagged in full proc: {rule_ids}"
+assert "ORA19-SQL-003" in rule_ids, f"SELECT * not flagged in full proc: {rule_ids}"
+assert "ORA19-DEPR-001" in rule_ids, f"DBMS_JOB not flagged in full proc: {rule_ids}"
+assert "ORA19-PLSQL-001" in rule_ids, f"WHEN OTHERS not flagged in full proc: {rule_ids}"
+print("PASS: full process_employee — all 4 issues detected")
+
+# Test 23: No duplicate SELECT * from nested INSERT...SELECT
+star_findings = [f for f in result["findings"] if f["rule_id"] == "ORA19-SQL-003"]
+assert len(star_findings) == 1, f"Duplicate SELECT * findings: {len(star_findings)}"
+print("PASS: no duplicate SELECT * from INSERT...SELECT")
+
+print("\nAll 23 tests passed")
+

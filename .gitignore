@@ -11,6 +11,13 @@ out/
 *.vsix
 .vscode-test/
 
+# ANTLR4 (generated parser, regenerated from .g4 grammars)
+backend/plsql_grammar/generated/
+backend/plsql_grammar/*.jar
+backend/plsql_grammar/*.interp
+backend/plsql_grammar/*.tokens
+backend/plsql_grammar
+
 # OS / Misc
 .DS_Store
 Thumbs.db
